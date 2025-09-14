@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>四象限メーカー v15（完成版・ピンク既定）</title>
+<title>四象限メーカー v16（完成版・色プレビューつき）</title>
 <style>
   :root{ --bg:#f7f7fb; --panel:#fff; --text:#111; --axis:#222; --accent:#4b8cff; --muted:#667; }
   html,body{height:100%}
@@ -19,7 +19,7 @@
   button{border:2px solid #ccd2dd; background:var(--accent); color:#fff; padding:10px 14px; border-radius:10px; font-weight:700; -webkit-tap-highlight-color:transparent; cursor:pointer}
   button.ghost{background:#fff; color:#111}
   button:disabled{opacity:.5; cursor:not-allowed}
-  .muted{font-size:12px; color:var(--muted); margin-left:auto}
+  .muted{font-size:12px; color:#667; margin-left:auto}
   label.chk{display:inline-flex; gap:6px; align-items:center; font-size:13px; color:#333; padding:6px 10px; background:#fff; border:2px solid #ccd2dd; border-radius:10px}
   /* Canvas title (outside) */
   .canvasTitle{margin:10px 12px 4px; text-align:center; font-weight:800; font-size:20px; color:#111}
@@ -48,6 +48,8 @@
   .editor .actions button{padding:10px 14px; border-radius:10px; border:2px solid #ccd2dd; font-weight:700}
   .editor .ghost{background:#fff; color:#111}
   .editor .danger{background:#fff; color:#c62828; border-color:#f3b1b1}
+  /* Color preview bar (for "new label color") */
+  .colorPreview{display:inline-block; width:84px; height:8px; border-radius:9999px; background:#ff66cc; margin-left:4px; margin-right:2px; vertical-align:middle; box-shadow:0 0 0 2px #fff inset, 0 0 0 1px #e6e6ef}
   /* Footer */
   .foot{padding:8px 12px; color:#667; font-size:12px}
 </style>
@@ -64,6 +66,7 @@
     <div class="group">
       <input id="labelInput" type="text" placeholder="追加するラベル（Enterで追加）" />
       <input id="colorInput" type="color" value="#ff66cc" title="枠色（新規・既定ピンク）" />
+      <span id="newColorPreview" class="colorPreview" aria-hidden="true" title="追加されるラベルの色プレビュー"></span>
       <button id="addBtn" type="button">追加（左上）</button>
       <label class="chk"><input id="contAdd" type="checkbox" checked /> 連続追加</label>
       <button id="editSelBtn" class="ghost" type="button" disabled>編集</button>
@@ -100,7 +103,7 @@
     </div>
   </div>
 
-  <div class="foot">© 四象限メーカー v15（完成版・既定ピンク）</div>
+  <div class="foot">© 四象限メーカー v16（完成版・色プレビュー）</div>
 
 <script>
 (function(){
@@ -114,6 +117,7 @@
   const yNeg = document.getElementById('yNeg');
   const labelInput = document.getElementById('labelInput');
   const colorInput = document.getElementById('colorInput');
+  const colorPreview = document.getElementById('newColorPreview');
   const contAdd = document.getElementById('contAdd');
   const addBtn = document.getElementById('addBtn');
   const editSelBtn = document.getElementById('editSelBtn');
@@ -233,7 +237,7 @@
     state.sel = id;
     paint();
     const n = state.nodes.find(x=>x.id===id);
-    if(n && !contAdd.checked){ labelInput.value = n.label; colorInput.value = n.color; }
+    if(n && !contAdd.checked){ labelInput.value = n.label; colorInput.value = n.color; updatePreview(); }
   }
   function updateButtons(){
     const hasSel = !!state.sel;
@@ -322,7 +326,7 @@
     if(e.key==='Escape'){ state.sel=null; paint(); closeEditor(); }
   });
 
-  // ----- Floating editor logic
+  // ----- Editor logic
   function openEditorAtNode(id){
     const n = state.nodes.find(x=>x.id===id); if(!n) return;
     state.editingId = id;
@@ -371,6 +375,14 @@
       closeEditor();
     }
   }, true);
+
+  // ----- Color preview sync (new label color)
+  function updatePreview(){
+    colorPreview.style.background = colorInput.value;
+  }
+  colorInput.addEventListener('input', updatePreview);
+  colorInput.addEventListener('change', updatePreview);
+  updatePreview(); // initial (pink)
 
   // Ready
   paint();
