@@ -1,10 +1,10 @@
-# Build v17: アコーディオン化（非固定／accordion <details>）、色プレビュー維持
-html = r"""<!doctype html>
+
+<!doctype html>
 <html lang="ja">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-<title>四象限メーカー v17（アコーディオン・非固定）</title>
+<title>四象限メーカー v15（完成版・ピンク既定）</title>
 <style>
   :root{ --bg:#f7f7fb; --panel:#fff; --text:#111; --axis:#222; --accent:#4b8cff; --muted:#667; }
   html,body{height:100%}
@@ -13,19 +13,8 @@ html = r"""<!doctype html>
     font-family: Meiryo, "メイリオ", "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic Medium", "Yu Gothic", "Noto Sans JP", system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     background:var(--bg); color:var(--text);
   }
-  /* Accordion panel */
-  details.panel{background:var(--panel); border-bottom:2px solid #e6e6ef;}
-  details.panel > summary{
-    display:flex; align-items:center; gap:8px; padding:10px 12px; cursor:pointer; list-style:none;
-    font-weight:700; color:#333;
-    position:relative;
-  }
-  details.panel > summary::-webkit-details-marker{display:none}
-  .chev{display:inline-block; width:1em; text-align:center; transition:transform .2s ease}
-  details.panel[open] > summary .chev{transform:rotate(90deg)}
-  .panel-body{padding:10px 12px; border-top:1px dashed #e6e6ef}
-  /* Controls inside panel */
-  .bar{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+  /* Top controls */
+  .bar{position:sticky; top:0; z-index:1000; background:var(--panel); border-bottom:2px solid #e6e6ef; padding:10px 12px; display:flex; gap:8px; align-items:center; flex-wrap:wrap}
   .bar .group{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
   input[type="text"], input[type="color"]{border:2px solid #ccd2dd; border-radius:10px; padding:10px 12px; font-size:16px; background:#fff; min-width:10ch}
   button{border:2px solid #ccd2dd; background:var(--accent); color:#fff; padding:10px 14px; border-radius:10px; font-weight:700; -webkit-tap-highlight-color:transparent; cursor:pointer}
@@ -60,39 +49,30 @@ html = r"""<!doctype html>
   .editor .actions button{padding:10px 14px; border-radius:10px; border:2px solid #ccd2dd; font-weight:700}
   .editor .ghost{background:#fff; color:#111}
   .editor .danger{background:#fff; color:#c62828; border-color:#f3b1b1}
-  /* Color preview bar (for "new label color") */
-  .colorPreview{display:inline-block; width:84px; height:8px; border-radius:9999px; background:#ff66cc; margin-left:4px; margin-right:2px; vertical-align:middle; box-shadow:0 0 0 2px #fff inset, 0 0 0 1px #e6e6ef}
   /* Footer */
   .foot{padding:8px 12px; color:#667; font-size:12px}
 </style>
 </head>
 <body>
-  <!-- Accordion (closed by default) -->
-  <details id="panel" class="panel">
-    <summary><span class="chev">▸</span> 編集パネル（ラベル追加・軸ラベル）</summary>
-    <div class="panel-body">
-      <div class="bar">
-        <div class="group">
-          <input id="titleInput" type="text" placeholder="タイトル（例：優先度 × 難易度）" />
-          <input id="xNeg" type="text" placeholder="X左" />
-          <input id="xPos" type="text" placeholder="X右" />
-          <input id="yPos" type="text" placeholder="Y上" />
-          <input id="yNeg" type="text" placeholder="Y下" />
-        </div>
-        <div class="group">
-          <input id="labelInput" type="text" placeholder="追加するラベル（Enterで追加）" />
-          <input id="colorInput" type="color" value="#ff66cc" title="枠色（新規・既定ピンク）" />
-          <span id="newColorPreview" class="colorPreview" aria-hidden="true" title="追加されるラベルの色プレビュー"></span>
-          <button id="addBtn" type="button">追加（左上）</button>
-          <label class="chk"><input id="contAdd" type="checkbox" checked /> 連続追加</label>
-          <button id="editSelBtn" class="ghost" type="button" disabled>編集</button>
-          <button id="delBtn" class="ghost" type="button" disabled>削除</button>
-          <button id="dupBtn" class="ghost" type="button" disabled>複製</button>
-        </div>
-        <span class="muted">ヒント：ステージを<strong>ダブルタップ/ダブルクリック</strong>でも追加</span>
-      </div>
+  <div class="bar">
+    <div class="group">
+      <input id="titleInput" type="text" placeholder="タイトル（例：優先度 × 難易度）" />
+      <input id="xNeg" type="text" placeholder="X左" />
+      <input id="xPos" type="text" placeholder="X右" />
+      <input id="yPos" type="text" placeholder="Y上" />
+      <input id="yNeg" type="text" placeholder="Y下" />
     </div>
-  </details>
+    <div class="group">
+      <input id="labelInput" type="text" placeholder="追加するラベル（Enterで追加）" />
+      <input id="colorInput" type="color" value="#ff66cc" title="枠色（新規・既定ピンク）" />
+      <button id="addBtn" type="button">追加（左上）</button>
+      <label class="chk"><input id="contAdd" type="checkbox" checked /> 連続追加</label>
+      <button id="editSelBtn" class="ghost" type="button" disabled>編集</button>
+      <button id="delBtn" class="ghost" type="button" disabled>削除</button>
+      <button id="dupBtn" class="ghost" type="button" disabled>複製</button>
+    </div>
+    <span class="muted">ヒント：ステージを<strong>ダブルタップ/ダブルクリック</strong>でも追加</span>
+  </div>
 
   <!-- Title outside the canvas -->
   <div id="canvasTitle" class="canvasTitle"></div>
@@ -121,7 +101,7 @@ html = r"""<!doctype html>
     </div>
   </div>
 
-  <div class="foot">© 四象限メーカー v17（アコーディオン・非固定・色プレビュー）</div>
+  <div class="foot">© 四象限メーカー v15（完成版・既定ピンク）</div>
 
 <script>
 (function(){
@@ -135,7 +115,6 @@ html = r"""<!doctype html>
   const yNeg = document.getElementById('yNeg');
   const labelInput = document.getElementById('labelInput');
   const colorInput = document.getElementById('colorInput');
-  const colorPreview = document.getElementById('newColorPreview');
   const contAdd = document.getElementById('contAdd');
   const addBtn = document.getElementById('addBtn');
   const editSelBtn = document.getElementById('editSelBtn');
@@ -255,7 +234,7 @@ html = r"""<!doctype html>
     state.sel = id;
     paint();
     const n = state.nodes.find(x=>x.id===id);
-    if(n && !contAdd.checked){ labelInput.value = n.label; colorInput.value = n.color; updatePreview(); }
+    if(n && !contAdd.checked){ labelInput.value = n.label; colorInput.value = n.color; }
   }
   function updateButtons(){
     const hasSel = !!state.sel;
@@ -344,7 +323,7 @@ html = r"""<!doctype html>
     if(e.key==='Escape'){ state.sel=null; paint(); closeEditor(); }
   });
 
-  // ----- Editor logic
+  // ----- Floating editor logic
   function openEditorAtNode(id){
     const n = state.nodes.find(x=>x.id===id); if(!n) return;
     state.editingId = id;
@@ -394,21 +373,9 @@ html = r"""<!doctype html>
     }
   }, true);
 
-  // ----- Color preview sync (new label color)
-  function updatePreview(){
-    colorPreview.style.background = colorInput.value;
-  }
-  colorInput.addEventListener('input', updatePreview);
-  colorInput.addEventListener('change', updatePreview);
-  updatePreview(); // initial (pink)
-
   // Ready
   paint();
 })();
 </script>
 </body>
-</html>"""
-path = "/mnt/data/quadrant_v17_accordion.html"
-with open(path, "w", encoding="utf-8") as f:
-    f.write(html)
-path
+</html>
