@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>四象限メーカー v15（完成版・ピンク既定）</title>
+<style>
+  :root{ --bg:#f7f7fb; --panel:#fff; --text:#111; --axis:#222; --accent:#4b8cff; --muted:#667; }
+  html,body{height:100%}
+  body{
+    margin:0;
+    font-family: Meiryo, "メイリオ", "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Yu Gothic Medium", "Yu Gothic", "Noto Sans JP", system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background:var(--bg); color:var(--text);
+  }
+  /* Top controls */
+  .bar{position:sticky; top:0; z-index:1000; background:var(--panel); border-bottom:2px solid #e6e6ef; padding:10px 12px; display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+  .bar .group{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+  input[type="text"], input[type="color"]{border:2px solid #ccd2dd; border-radius:10px; padding:10px 12px; font-size:16px; background:#fff; min-width:10ch}
+  button{border:2px solid #ccd2dd; background:var(--accent); color:#fff; padding:10px 14px; border-radius:10px; font-weight:700; -webkit-tap-highlight-color:transparent; cursor:pointer}
+  button.ghost{background:#fff; color:#111}
+  button:disabled{opacity:.5; cursor:not-allowed}
+  .muted{font-size:12px; color:var(--muted); margin-left:auto}
+  label.chk{display:inline-flex; gap:6px; align-items:center; font-size:13px; color:#333; padding:6px 10px; background:#fff; border:2px solid #ccd2dd; border-radius:10px}
+  /* Canvas title (outside) */
+  .canvasTitle{margin:10px 12px 4px; text-align:center; font-weight:800; font-size:20px; color:#111}
+  /* Stage */
+  .stage{position:relative; height:72vh; margin:6px 12px 10px; border:4px solid #000; border-radius:12px; background:#fff; touch-action:none; -webkit-user-select:none; user-select:none; overflow:hidden}
+  .axis-x,.axis-y{position:absolute; background:var(--axis); opacity:.98; z-index:1}
+  .axis-x{left:0; right:0; top:50%; height:5px; transform:translateY(-2.5px)}
+  .axis-y{top:0; bottom:0; left:50%; width:5px; transform:translateX(-2.5px)}
+  .titles{position:absolute; inset:0; pointer-events:none; z-index:3; color:#333; font-size:14px; font-weight:600}
+  .tag{display:inline-block; background:#fff; padding:4px 10px; border-radius:12px; box-shadow:0 0 0 6px #fff}
+  .titles .xneg{position:absolute; left:4%; top:50%; transform:translateY(-50%);}
+  .titles .xpos{position:absolute; right:4%; top:50%; transform:translateY(-50%);}
+  .titles .ypos{position:absolute; top:4%; left:50%; transform:translateX(-50%);}
+  .titles .yneg{position:absolute; bottom:4%; left:50%; transform:translateX(-50%);}
+  /* Node */
+  .node{position:absolute; translate:-50% -50%; touch-action:none; cursor:grab; z-index:4; display:inline-flex; align-items:center}
+  .label{display:inline-block; font-size:16px; background:#fff; padding:10px 14px; border-radius:9999px; box-shadow:0 1px 2px rgba(0,0,0,.06); border:5px solid #d9dbe3}
+  .node.sel .label{outline:3px solid var(--accent); outline-offset:3px}
+  .editNodeBtn{border:2px solid #ccd2dd; background:#fff; color:#111; padding:6px 10px; border-radius:10px; font-size:13px; line-height:1; margin-left:8px}
+  /* Editor popover */
+  .editor{position:fixed; z-index:10000; background:#fff; border:2px solid #e6e6ef; border-radius:12px; padding:12px; width:min(92vw,340px); box-shadow:0 12px 36px rgba(0,0,0,.16); display:none}
+  .editor .row{display:flex; gap:8px; align-items:center; margin-bottom:10px}
+  .editor input[type="text"]{flex:1; border:2px solid #ccd2dd; border-radius:10px; padding:10px 12px; font-size:16px}
+  .editor input[type="color"]{border:2px solid #ccd2dd; border-radius:10px; padding:6px; height:42px; width:60px}
+  .editor .actions{display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap}
+  .editor .actions button{padding:10px 14px; border-radius:10px; border:2px solid #ccd2dd; font-weight:700}
+  .editor .ghost{background:#fff; color:#111}
+  .editor .danger{background:#fff; color:#c62828; border-color:#f3b1b1}
+  /* Footer */
+  .foot{padding:8px 12px; color:#667; font-size:12px}
+</style>
+</head>
+<body>
+  <div class="bar">
+    <div class="group">
+      <input id="titleInput" type="text" placeholder="タイトル（例：優先度 × 難易度）" />
+      <input id="xNeg" type="text" placeholder="X左" />
+      <input id="xPos" type="text" placeholder="X右" />
+      <input id="yPos" type="text" placeholder="Y上" />
+      <input id="yNeg" type="text" placeholder="Y下" />
+    </div>
+    <div class="group">
+      <input id="labelInput" type="text" placeholder="追加するラベル（Enterで追加）" />
+      <input id="colorInput" type="color" value="#ff66cc" title="枠色（新規・既定ピンク）" />
+      <button id="addBtn" type="button">追加（左上）</button>
+      <label class="chk"><input id="contAdd" type="checkbox" checked /> 連続追加</label>
+      <button id="editSelBtn" class="ghost" type="button" disabled>編集</button>
+      <button id="delBtn" class="ghost" type="button" disabled>削除</button>
+      <button id="dupBtn" class="ghost" type="button" disabled>複製</button>
+    </div>
+    <span class="muted">ヒント：ステージを<strong>ダブルタップ/ダブルクリック</strong>でも追加</span>
+  </div>
+
+  <!-- Title outside the canvas -->
+  <div id="canvasTitle" class="canvasTitle"></div>
+
+  <div id="stage" class="stage" aria-label="stage">
+    <div class="axis-x"></div><div class="axis-y"></div>
+    <div class="titles">
+      <div id="tXNeg" class="xneg tag"></div>
+      <div id="tXPos" class="xpos tag"></div>
+      <div id="tYPos" class="ypos tag"></div>
+      <div id="tYNeg" class="yneg tag"></div>
+    </div>
+  </div>
+
+  <!-- Floating Editor -->
+  <div id="editor" class="editor" role="dialog" aria-modal="true" aria-label="ポイント編集">
+    <div class="row">
+      <input id="edLabel" type="text" placeholder="ラベル" />
+      <input id="edColor" type="color" value="#ff66cc" title="枠色（既定ピンク）" />
+    </div>
+    <div class="actions">
+      <button id="edDelete" class="danger" type="button">削除</button>
+      <div style="flex:1"></div>
+      <button id="edCancel" class="ghost" type="button">キャンセル</button>
+      <button id="edOk" type="button">OK</button>
+    </div>
+  </div>
+
+  <div class="foot">© 四象限メーカー v15（完成版・既定ピンク）</div>
+
+<script>
+(function(){
+  // ----- Elements
+  const stage = document.getElementById('stage');
+  const canvasTitle = document.getElementById('canvasTitle');
+  const titleInput = document.getElementById('titleInput');
+  const xNeg = document.getElementById('xNeg');
+  const xPos = document.getElementById('xPos');
+  const yPos = document.getElementById('yPos');
+  const yNeg = document.getElementById('yNeg');
+  const labelInput = document.getElementById('labelInput');
+  const colorInput = document.getElementById('colorInput');
+  const contAdd = document.getElementById('contAdd');
+  const addBtn = document.getElementById('addBtn');
+  const editSelBtn = document.getElementById('editSelBtn');
+  const delBtn = document.getElementById('delBtn');
+  const dupBtn = document.getElementById('dupBtn');
+  const tXNeg = document.getElementById('tXNeg');
+  const tXPos = document.getElementById('tXPos');
+  const tYPos = document.getElementById('tYPos');
+  const tYNeg = document.getElementById('tYNeg');
+  const editor = document.getElementById('editor');
+  const edLabel = document.getElementById('edLabel');
+  const edColor = document.getElementById('edColor');
+  const edOk = document.getElementById('edOk');
+  const edCancel = document.getElementById('edCancel');
+  const edDelete = document.getElementById('edDelete');
+
+  // ----- State
+  const state = { nodes: [], sel: null, editingId: null, autoIdx: 0 };
+  const clamp = (v,a,b)=>Math.max(a,Math.min(b,v));
+  const uid = ()=>Math.random().toString(36).slice(2,9);
+  const normToCss = (x,y)=>({ left: (50 + x*50) + "%", top: (50 - y*50) + "%" });
+  function clientToNorm(cx,cy){
+    const r = stage.getBoundingClientRect();
+    const px = clamp((cx - r.left)/r.width, 0, 1);
+    const py = clamp((cy - r.top)/r.height, 0, 1);
+    return { x:(px-0.5)*2, y:(0.5-py)*2 };
+  }
+
+  // ----- Axis labels
+  function applyAxis(){
+    canvasTitle.textContent = titleInput.value.trim();
+    tXNeg.textContent = xNeg.value.trim();
+    tXPos.textContent = xPos.value.trim();
+    tYPos.textContent = yPos.value.trim();
+    tYNeg.textContent = yNeg.value.trim();
+  }
+  [titleInput,xNeg,xPos,yPos,yNeg].forEach(el=>el.addEventListener('input', applyAxis));
+  // Defaults
+  titleInput.value="優先度 × 難易度"; xNeg.value="低優先度"; xPos.value="高優先度"; yPos.value="低難易度"; yNeg.value="高難易度";
+  applyAxis();
+
+  // ----- Core
+  function makeNode(n){
+    let el = stage.querySelector('[data-id="'+n.id+'"]');
+    if(!el){
+      el = document.createElement('div');
+      el.className = 'node';
+      el.dataset.id = n.id;
+      el.innerHTML = '<span class="label"></span><button class="editNodeBtn" type="button">編集</button>';
+      stage.appendChild(el);
+
+      // Select
+      el.addEventListener('click', (e)=>{ e.stopPropagation(); select(n.id); });
+
+      // Edit button (per-node)
+      el.querySelector('.editNodeBtn').addEventListener('click', (e)=>{
+        e.stopPropagation();
+        select(n.id);
+        openEditorAtNode(n.id);
+      });
+
+      // Drag (pointer/touch/mouse)
+      function startDrag(cx,cy){
+        select(n.id);
+        const r = stage.getBoundingClientRect();
+        const start = {x:cx, y:cy}; const base = {x:n.x, y:n.y};
+        function move(cxx,cyy){
+          const dx = (cxx - start.x)/r.width;
+          const dy = (cyy - start.y)/r.height;
+          n.x = clamp(base.x + dx*2, -1, 1);
+          n.y = clamp(base.y - dy*2, -1, 1);
+          paint();
+        }
+        function up(){
+          window.removeEventListener('pointermove', pm, {passive:false});
+          window.removeEventListener('pointerup', up);
+          window.removeEventListener('mousemove', mm);
+          window.removeEventListener('mouseup', up);
+          window.removeEventListener('touchmove', tm);
+          window.removeEventListener('touchend', up);
+          window.removeEventListener('touchcancel', up);
+        }
+        const pm = (e)=>{ e.preventDefault(); move(e.clientX,e.clientY); };
+        const mm = (e)=>{ move(e.clientX,e.clientY); };
+        const tm = (e)=>{ const t=e.changedTouches[0]; if(!t) return; e.preventDefault(); move(t.clientX,t.clientY); };
+        window.addEventListener('pointermove', pm, {passive:false});
+        window.addEventListener('pointerup', up);
+        window.addEventListener('mousemove', mm);
+        window.addEventListener('mouseup', up);
+        window.addEventListener('touchmove', tm, {passive:false});
+        window.addEventListener('touchend', up);
+        window.addEventListener('touchcancel', up);
+      }
+      el.addEventListener('pointerdown', (e)=>{ 
+        if(e.target.closest('.editNodeBtn')) return;
+        e.preventDefault(); startDrag(e.clientX,e.clientY); 
+      });
+      el.addEventListener('touchstart', (e)=>{ 
+        if(e.target.closest('.editNodeBtn')) return;
+        e.preventDefault(); const t=e.changedTouches[0]; startDrag(t.clientX,t.clientY); 
+      }, {passive:false});
+      el.addEventListener('mousedown', (e)=>{ 
+        if(e.target.closest('.editNodeBtn')) return;
+        e.preventDefault(); startDrag(e.clientX,e.clientY); 
+      });
+    }
+    const pos = normToCss(n.x,n.y);
+    el.style.left = pos.left; el.style.top = pos.top;
+    const lab = el.querySelector('.label');
+    lab.textContent = n.label;
+    lab.style.borderColor = n.color;
+    el.classList.toggle('sel', state.sel===n.id);
+  }
+
+  function paint(){ state.nodes.forEach(makeNode); updateButtons(); }
+  function select(id){
+    state.sel = id;
+    paint();
+    const n = state.nodes.find(x=>x.id===id);
+    if(n && !contAdd.checked){ labelInput.value = n.label; colorInput.value = n.color; }
+  }
+  function updateButtons(){
+    const hasSel = !!state.sel;
+    delBtn.disabled = !hasSel; dupBtn.disabled = !hasSel; editSelBtn.disabled = !hasSel;
+  }
+
+  function addNode({label, x=-0.92, y=0.92, color="#ff66cc"}){
+    const node = { id: uid(), label: (label||'新規'), x, y, color };
+    state.nodes.push(node);
+    makeNode(node);
+    if(contAdd.checked){
+      state.sel = null; paint();
+      labelInput.value = "";
+      setTimeout(()=>{ labelInput.focus({preventScroll:true}); }, 0);
+    }else{
+      select(node.id);
+    }
+  }
+
+  // ----- Add button (click/pointerup/touchend with dedupe)
+  let lastAddAt = 0;
+  function nextLabel(){
+    const raw = labelInput.value.trim();
+    if(raw) return raw;
+    state.autoIdx += 1;
+    return "新規 " + state.autoIdx;
+  }
+  function doAddAt({x=-0.92, y=0.92}){
+    const now = Date.now(); if(now - lastAddAt < 200) return; lastAddAt = now;
+    addNode({label: nextLabel(), x, y, color: colorInput.value});
+  }
+  function doAdd(){ doAddAt({}); }
+  addBtn.addEventListener('click', (e)=>{ e.preventDefault(); doAdd(); });
+  addBtn.addEventListener('pointerup', (e)=>{ e.preventDefault(); doAdd(); });
+  addBtn.addEventListener('touchend', (e)=>{ e.preventDefault(); doAdd(); }, {passive:false});
+
+  // Enterで追加
+  labelInput.addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter'){
+      e.preventDefault();
+      doAdd();
+    }
+  });
+
+  // ----- Double-tap / double-click to add at position
+  stage.addEventListener('dblclick', (e)=>{
+    const n = clientToNorm(e.clientX,e.clientY);
+    doAddAt({x:n.x, y:n.y});
+  });
+  let lastTap=0, lastPos=null;
+  stage.addEventListener('touchstart', (e)=>{
+    if(e.touches.length!==1) return;
+    const t=e.touches[0]; const now=Date.now();
+    if(now-lastTap<300){
+      const dx=lastPos?Math.abs(lastPos.x-t.clientX):999, dy=lastPos?Math.abs(lastPos.y-t.clientY):999;
+      if(dx<12 && dy<12){ e.preventDefault(); const n=clientToNorm(t.clientX,t.clientY); doAddAt({x:n.x, y:n.y}); }
+    }
+    lastTap=now; lastPos={x:t.clientX,y:t.clientY};
+  }, {passive:false});
+
+  // ----- Stage click to deselect & close editor
+  stage.addEventListener('click', ()=>{ state.sel=null; paint(); closeEditor(); });
+
+  // ----- Edit selected (top bar button)
+  editSelBtn.addEventListener('click', ()=>{ if(state.sel) openEditorAtNode(state.sel); });
+
+  // ----- Delete / Duplicate (top bar)
+  delBtn.addEventListener('click', ()=>{
+    if(!state.sel) return;
+    const i = state.nodes.findIndex(x=>x.id===state.sel);
+    if(i>=0){
+      const id = state.nodes[i].id;
+      const el = stage.querySelector('[data-id="'+id+'"]'); if(el) el.remove();
+      state.nodes.splice(i,1);
+      state.sel=null; paint(); closeEditor();
+    }
+  });
+  dupBtn.addEventListener('click', ()=>{
+    const n = state.nodes.find(x=>x.id===state.sel); if(!n) return;
+    addNode({label: n.label+' copy', x: clamp(n.x+0.06,-1,1), y: clamp(n.y-0.06,-1,1), color:n.color});
+  });
+
+  // ----- Keyboard (desktop)
+  document.addEventListener('keydown', (e)=>{
+    if(e.key==='Delete' || e.key==='Backspace'){ if(!delBtn.disabled) delBtn.click(); }
+    if(e.key==='Escape'){ state.sel=null; paint(); closeEditor(); }
+  });
+
+  // ----- Floating editor logic
+  function openEditorAtNode(id){
+    const n = state.nodes.find(x=>x.id===id); if(!n) return;
+    state.editingId = id;
+    edLabel.value = n.label; edColor.value = n.color;
+    const nodeEl = stage.querySelector('[data-id="'+id+'"]');
+    const r = nodeEl.getBoundingClientRect();
+    const ed = editor;
+    ed.style.display = 'block';
+    const gap = 10;
+    let left = r.left; 
+    let top = r.bottom + gap;
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const edW = Math.min(340, Math.floor(vw*0.92));
+    const edH = 130;
+    if(left + edW > vw - 8) left = vw - edW - 8;
+    if(top + edH > vh - 8) top = r.top - edH - gap;
+    ed.style.left = Math.max(8, left) + 'px';
+    ed.style.top  = Math.max(8, top) + 'px';
+    edLabel.focus({preventScroll:true});
+  }
+  function closeEditor(){
+    state.editingId = null;
+    editor.style.display = 'none';
+  }
+  edOk.addEventListener('click', ()=>{
+    const id = state.editingId; if(!id) return closeEditor();
+    const n = state.nodes.find(x=>x.id===id); if(!n) return closeEditor();
+    n.label = edLabel.value; n.color = edColor.value;
+    paint(); closeEditor();
+  });
+  edCancel.addEventListener('click', closeEditor);
+  edDelete.addEventListener('click', ()=>{
+    const id = state.editingId; if(!id) return closeEditor();
+    const i = state.nodes.findIndex(x=>x.id===id);
+    if(i>=0){
+      const dom = stage.querySelector('[data-id="'+id+'"]'); if(dom) dom.remove();
+      state.nodes.splice(i,1);
+      state.sel = null;
+      paint();
+    }
+    closeEditor();
+  });
+  window.addEventListener('resize', ()=>{ if(state.editingId) openEditorAtNode(state.editingId); });
+  document.addEventListener('click', (e)=>{
+    if(editor.style.display==='block' && !editor.contains(e.target) && !e.target.closest('.editNodeBtn')){
+      closeEditor();
+    }
+  }, true);
+
+  // Ready
+  paint();
+})();
+</script>
+</body>
+</html>
